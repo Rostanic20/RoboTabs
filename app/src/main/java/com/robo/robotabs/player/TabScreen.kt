@@ -3,10 +3,7 @@ package com.robo.robotabs.player
 import alphaTab.AlphaTabView
 import alphaTab.model.Score
 import alphaTab.model.Track
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,11 +11,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.BottomAppBar
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,8 +25,6 @@ import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -48,6 +43,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.doOnLayout
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.robo.robotabs.R
@@ -55,19 +53,16 @@ import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TabScreen(viewModel: TabViewModel = viewModel()) {
+fun TabScreen(
+    songId: String,
+    onBack: () -> Unit,
+    viewModel: TabViewModel = viewModel(factory = TabViewModel.Factory),
+) {
+    LaunchedEffect(songId) { viewModel.open(songId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val playback = remember { Playback() }
-    val snackbarHostState = remember { SnackbarHostState() }
-    val loadFailedMessage = stringResource(R.string.load_failed)
-    LaunchedEffect(viewModel) {
-        viewModel.loadFailed.collect { snackbarHostState.showSnackbar(loadFailedMessage) }
-    }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) viewModel.open(uri)
-    }
-    val openFile = { picker.launch(arrayOf("*/*")) }
-    val score = state.score
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { playback.pause() }
+    val score = state.score.takeIf { state.songId == songId }
     val tracks = remember(score) { score?.tracks?.toList().orEmpty() }
 
     Scaffold(
@@ -75,30 +70,36 @@ fun TabScreen(viewModel: TabViewModel = viewModel()) {
             TopAppBar(
                 title = {
                     Text(
-                        text = score?.title?.takeIf { it.isNotBlank() } ?: stringResource(R.string.app_name),
+                        text = score?.title?.takeIf { it.isNotBlank() }.orEmpty(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back))
+                    }
                 },
                 actions = {
                     if (tracks.size > 1) {
                         TrackPicker(tracks, state.trackIndex, viewModel::selectTrack)
                     }
-                    TextButton(onClick = openFile) { Text(stringResource(R.string.open_file)) }
                 },
             )
         },
         bottomBar = {
             if (score != null) PlayerControls(playback)
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (score == null) {
-                EmptyState(openFile, Modifier.weight(1f))
-            } else {
-                TabSheet(score, state.trackIndex, playback, Modifier.weight(1f))
+            when {
+                score != null -> TabSheet(score, state.trackIndex, playback, Modifier.weight(1f))
+                state.loadFailed -> Text(
+                    text = stringResource(R.string.song_load_failed),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                )
+                else -> LinearProgressIndicator(Modifier.fillMaxWidth())
             }
         }
     }
@@ -118,7 +119,7 @@ private fun TabSheet(score: Score, trackIndex: Int, playback: Playback, modifier
             val track = score.tracks[trackIndex]
             if (view.tracks?.firstOrNull() !== track) {
                 view.api.stop()
-                view.tracks = listOf(track)
+                view.doOnLayout { view.tracks = listOf(track) }
             }
         },
     )
@@ -179,17 +180,5 @@ private fun TrackPicker(tracks: List<Track>, selected: Int, onSelect: (Int) -> U
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun EmptyState(onOpen: () -> Unit, modifier: Modifier) {
-    Column(
-        modifier = modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(stringResource(R.string.open_file_hint), textAlign = TextAlign.Center)
-        Button(onClick = onOpen) { Text(stringResource(R.string.open_file)) }
     }
 }

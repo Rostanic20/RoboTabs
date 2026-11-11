@@ -32,6 +32,10 @@ class Playback {
         api?.playPause()
     }
 
+    fun pause() {
+        api?.pause()
+    }
+
     fun stop() {
         api?.stop()
     }

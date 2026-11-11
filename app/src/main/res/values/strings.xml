@@ -1,8 +1,17 @@
 <resources>
     <string name="app_name">RoboTabs</string>
-    <string name="open_file">Open</string>
-    <string name="open_file_hint">Open a Guitar Pro or MusicXML file to see and play the tab.</string>
+    <string name="add_song">Add tab</string>
+    <string name="library_empty">Add a Guitar Pro, MusicXML or alphaTex file to start your tab library.</string>
     <string name="load_failed">This file could not be opened.</string>
+    <string name="song_load_failed">This tab could not be opened.</string>
+    <string name="file_too_large">This file is too large to be a tab.</string>
+    <string name="untitled">Untitled</string>
+    <string name="delete_failed">The tab could not be deleted.</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete_song_title">Delete %1$s?</string>
+    <string name="delete_song_text">The tab is removed from the app. The original file is not touched.</string>
+    <string name="back">Back</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
     <string name="stop">Stop</string>
