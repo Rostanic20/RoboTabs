@@ -1,51 +1,47 @@
 package com.robo.robotabs.player
 
-import alphaTab.AlphaTabError
-import alphaTab.core.ecmaScript.Uint8Array
-import alphaTab.importer.ScoreLoader
 import alphaTab.model.Score
-import android.app.Application
-import android.net.Uri
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.robo.robotabs.RoboTabsApp
+import com.robo.robotabs.library.SongLibrary
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class TabUiState(
+    val songId: String? = null,
     val score: Score? = null,
     val trackIndex: Int = 0,
     val loading: Boolean = false,
+    val loadFailed: Boolean = false,
 )
 
-class TabViewModel(application: Application) : AndroidViewModel(application) {
+class TabViewModel(
+    private val library: SongLibrary,
+    private val parseDispatcher: CoroutineDispatcher = Dispatchers.Default,
+) : ViewModel() {
     private val _state = MutableStateFlow(TabUiState())
     val state: StateFlow<TabUiState> = _state.asStateFlow()
 
-    private val _loadFailed = Channel<Unit>(Channel.CONFLATED)
-    val loadFailed: Flow<Unit> = _loadFailed.receiveAsFlow()
-
     private var loadJob: Job? = null
 
-    fun open(uri: Uri) {
+    fun open(songId: String) {
+        if (_state.value.songId == songId && !_state.value.loadFailed) return
         loadJob?.cancel()
-        _state.update { it.copy(loading = true) }
+        _state.value = TabUiState(songId = songId, loading = true)
         loadJob = viewModelScope.launch {
-            val score = withContext(Dispatchers.IO) { readScore(uri) }
-            if (score == null) {
-                _state.update { it.copy(loading = false) }
-                _loadFailed.send(Unit)
-            } else {
-                _state.value = TabUiState(score = score)
-            }
+            val score = library.read(songId)?.let { withContext(parseDispatcher) { parseScore(it) } }
+            _state.value = TabUiState(songId = songId, score = score, loadFailed = score == null)
         }
     }
 
@@ -53,17 +49,9 @@ class TabViewModel(application: Application) : AndroidViewModel(application) {
         _state.update { it.copy(trackIndex = index) }
     }
 
-    private fun readScore(uri: Uri): Score? {
-        return try {
-            val bytes = getApplication<Application>().contentResolver
-                .openInputStream(uri)
-                ?.use { it.readBytes() }
-                ?: return null
-            ScoreLoader.loadScoreFromBytes(Uint8Array(bytes.asUByteArray()))
-        } catch (e: Exception) {
-            null
-        } catch (e: AlphaTabError) {
-            null
+    companion object {
+        val Factory = viewModelFactory {
+            initializer { TabViewModel((this[APPLICATION_KEY] as RoboTabsApp).library) }
         }
     }
 }

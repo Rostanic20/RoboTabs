@@ -9,6 +9,7 @@
 /.idea/assetWizardSettings.xml
 /.idea/deploymentTargetSelector.xml
 /.idea/deviceManager.xml
+/.claude/settings.local.json
 .DS_Store
 /build
 /captures
