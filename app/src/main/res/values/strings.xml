@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">RoboTabs</string>
+    <string name="open_file">Open</string>
+    <string name="open_file_hint">Open a Guitar Pro or MusicXML file to see and play the tab.</string>
+    <string name="load_failed">This file could not be opened.</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="stop">Stop</string>
+    <string name="loop">Loop</string>
+    <string name="choose_track">Choose track</string>
+    <string name="speed_value">%1$d%%</string>
+</resources>
