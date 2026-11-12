@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -60,7 +62,9 @@ fun TabScreen(
 ) {
     LaunchedEffect(songId) { viewModel.open(songId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val playback = remember { Playback() }
+    val context = LocalContext.current.applicationContext
+    val playback = remember { Playback(SystemAudioFocus(context)) }
+    DisposableEffect(playback) { onDispose { playback.release() } }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { playback.pause() }
     val score = state.score.takeIf { state.songId == songId }
     val tracks = remember(score) { score?.tracks?.toList().orEmpty() }
@@ -118,7 +122,7 @@ private fun TabSheet(score: Score, trackIndex: Int, playback: Playback, modifier
         update = { view ->
             val track = score.tracks[trackIndex]
             if (view.tracks?.firstOrNull() !== track) {
-                view.api.stop()
+                playback.stop()
                 view.doOnLayout { view.tracks = listOf(track) }
             }
         },

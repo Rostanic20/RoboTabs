@@ -1,15 +1,20 @@
 package com.robo.robotabs.player
 
-import alphaTab.AlphaTabApiBase
-import alphaTab.AlphaTabView
-import alphaTab.synth.PlayerState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-class Playback {
-    private var api: AlphaTabApiBase<AlphaTabView>? = null
+interface Player {
+    fun play(): Boolean
+    fun pause()
+    fun stop()
+    fun setSpeed(value: Double)
+    fun setLooping(value: Boolean)
+}
+
+class Playback(private val focus: AudioFocus) {
+    private var player: Player? = null
 
     var ready by mutableStateOf(false)
         private set
@@ -20,33 +25,56 @@ class Playback {
     var looping by mutableStateOf(false)
         private set
 
-    fun attach(api: AlphaTabApiBase<AlphaTabView>) {
-        this.api = api
-        api.playbackSpeed = speed.toDouble()
-        api.isLooping = looping
-        api.playerReady.on { ready = true }
-        api.playerStateChanged.on { playing = it.state == PlayerState.Playing }
+    fun attach(player: Player) {
+        this.player = player
+        player.setSpeed(speed.toDouble())
+        player.setLooping(looping)
+    }
+
+    fun onReady() {
+        ready = true
+    }
+
+    fun onPlayingChanged(value: Boolean) {
+        playing = value
+        if (!value || player == null) {
+            focus.release()
+        } else if (!focus.acquire(::pause)) {
+            player?.pause()
+        }
     }
 
     fun playPause() {
-        api?.playPause()
+        if (playing) pause() else play()
+    }
+
+    private fun play() {
+        val player = player ?: return
+        if (focus.acquire(::pause) && !player.play()) focus.release()
     }
 
     fun pause() {
-        api?.pause()
+        player?.pause()
+        focus.release()
     }
 
     fun stop() {
-        api?.stop()
+        player?.stop()
+        focus.release()
+    }
+
+    fun release() {
+        player = null
+        focus.release()
     }
 
     fun changeSpeed(value: Float) {
         speed = value
-        api?.playbackSpeed = value.toDouble()
+        player?.setSpeed(value.toDouble())
     }
 
     fun changeLooping(value: Boolean) {
         looping = value
-        api?.isLooping = value
+        player?.setLooping(value)
     }
 }
