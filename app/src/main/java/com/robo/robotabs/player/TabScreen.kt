@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -66,6 +67,11 @@ fun TabScreen(
     val playback = remember { Playback(SystemAudioFocus(context)) }
     DisposableEffect(playback) { onDispose { playback.release() } }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { playback.pause() }
+    val view = LocalView.current
+    DisposableEffect(playback.playing) {
+        view.keepScreenOn = playback.playing
+        onDispose { view.keepScreenOn = false }
+    }
     val score = state.score.takeIf { state.songId == songId }
     val tracks = remember(score) { score?.tracks?.toList().orEmpty() }
 
